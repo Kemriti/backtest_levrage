@@ -1,4 +1,4 @@
 @echo off
 start "" node -e "const http=require('http'),https=require('https');http.createServer((req,res)=>{const url=req.url.slice(1);if(!url.startsWith('http')){res.writeHead(400);res.end('Bad URL');return;}res.setHeader('Access-Control-Allow-Origin','*');res.setHeader('Access-Control-Allow-Headers','*');if(req.method==='OPTIONS'){res.writeHead(200);res.end();return;}const mod=url.startsWith('https')?https:http;mod.get(url,{headers:{'User-Agent':'Mozilla/5.0'}},r=>{res.writeHead(r.statusCode,{'Content-Type':r.headers['content-type']||'application/json','Access-Control-Allow-Origin':'*'});r.pipe(res);}).on('error',e=>{res.writeHead(500);res.end(e.message);});}).listen(8080,()=>console.log('Proxy OK'));"
 timeout /t 1 /nobreak >nul
-start "" "%~dp0upro_backtest_v9_yahoo.html"
+start "" "%~dp0public\index.html"

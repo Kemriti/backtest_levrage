@@ -1,36 +1,36 @@
 # UPRO Buy The Dip — Backtest Engine (V6)
 
-Application web **monofichier** (`upro_backtest_v9_yahoo.html`) qui simule une stratégie *"Buy The Dip"* sur l'ETF levier x3 **UPRO** (S&P 500 ×3), avec gestion DCA, filtre de tendance/régime, hedge par puts (Black‑Scholes), coûts réels (frais, spread, slippage, fiscalité) et comparaison vs Buy & Hold (SPY / UPRO).
+Application web **quasi-monofichier** (`public/index.html`) qui simule une stratégie *"Buy The Dip"* sur l'ETF levier x3 **UPRO** (S&P 500 ×3), avec gestion DCA, filtre de tendance/régime, hedge par puts (Black‑Scholes), coûts réels (frais, spread, slippage, fiscalité) et comparaison vs Buy & Hold (SPY / UPRO).
 
-Tout tourne **dans le navigateur** : le moteur de calcul est écrit en Python et exécuté via **Pyodide** (Python compilé en WebAssembly) — aucun serveur ni backend nécessaire pour le calcul lui‑même.
+Tout tourne **dans le navigateur** : le moteur de calcul est écrit en Python et exécuté via **Pyodide** (Python compilé en WebAssembly) — aucun serveur ni backend nécessaire pour le calcul lui‑même. Un unique Cloudflare Worker (`src/worker.js`) sert ce fichier statique et fait aussi office de proxy CORS pour le téléchargement Yahoo Finance.
 
 ## Fichiers du dossier
 
 | Fichier | Rôle |
 |---|---|
-| `upro_backtest_v9_yahoo.html` | L'application complète (UI + moteur Python Pyodide + graphiques Chart.js + export Excel) |
-| `functions/api/yahoo.js` | Fonction **Cloudflare Pages** : proxy CORS "maison" pour Yahoo Finance, servie à `/api/yahoo` une fois le site déployé |
-| `_redirects` | Règle Cloudflare Pages : fait servir `upro_backtest_v9_yahoo.html` à la racine du site (`/`) |
-| `lancer_backtest.bat` | Lanceur Windows *legacy* pour un usage 100 % local hors-ligne (démarre un proxy CORS local puis ouvre le HTML) — inutile une fois le site déployé sur Cloudflare Pages |
+| `public/index.html` | L'application complète (UI + moteur Python Pyodide + graphiques Chart.js + export Excel) |
+| `src/worker.js` | Cloudflare Worker : sert `public/` comme site statique et proxy `/api/yahoo` (CORS) pour Yahoo Finance |
+| `wrangler.jsonc` | Config Cloudflare (`name`, `assets.directory`, `main`) utilisée par `wrangler deploy` |
+| `lancer_backtest.bat` | Lanceur Windows *legacy* pour un usage 100 % local hors-ligne (démarre un proxy CORS local puis ouvre `public/index.html`) — inutile une fois le site déployé sur Cloudflare |
 
-## Hébergement (Cloudflare Pages) — recommandé
+## Hébergement (Cloudflare Workers) — recommandé
 
-Le site est déployé sur **Cloudflare Pages**, connecté à ce repo GitHub : chaque `git push` redéploie automatiquement. L'URL obtenue (`https://<projet>.pages.dev`, ou un domaine personnalisé) peut être ouverte depuis n'importe quel appareil/navigateur, sans rien installer ni lancer localement — y compris le téléchargement Yahoo Finance, géré par la fonction `functions/api/yahoo.js` (voir ci-dessous).
+Le site est déployé sur **Cloudflare Workers** (mode "Workers + static assets"), connecté à ce repo GitHub : chaque `git push` sur `main` redéploie automatiquement via `npx wrangler deploy`. L'URL obtenue (`https://backtest-levrage.<compte>.workers.dev`, ou un domaine personnalisé) peut être ouverte depuis n'importe quel appareil/navigateur, sans rien installer ni lancer localement — y compris le téléchargement Yahoo Finance, géré par `src/worker.js` (voir ci-dessous).
 
 ## Lancement 100 % local (`lancer_backtest.bat`) — optionnel
 
 Pour un usage hors-ligne sans passer par l'URL hébergée, double-clic sur le `.bat` :
 
 1. Démarre un **proxy CORS local sur `localhost:8080`** via `node -e "..."` (serveur Node inline, sans dépendance). Il relaie n'importe quelle URL passée en paramètre (`http://localhost:8080/<url>`) vers Yahoo Finance et ajoute les en-têtes `Access-Control-Allow-Origin: *`.
-2. Attend 1 seconde puis ouvre `upro_backtest_v9_yahoo.html` dans le navigateur par défaut.
+2. Attend 1 seconde puis ouvre `public/index.html` dans le navigateur par défaut.
 
-Pré-requis : **Node.js installé**. Ce script n'est plus nécessaire si vous utilisez l'URL Cloudflare Pages — il ne sert qu'à titre de filet de secours local.
+Pré-requis : **Node.js installé**. Ce script n'est plus nécessaire si vous utilisez l'URL Cloudflare — il ne sert qu'à titre de filet de secours local.
 
 ## Sources de données
 
 Trois façons d'alimenter le backtest (panneau "Données historiques" en haut de page) :
 
-1. **Chargement automatique Yahoo Finance** — bouton qui récupère UPRO (ou `3USL.L`, version listée à Londres), SPY et ^VIX via l'API `query1.finance.yahoo.com/v8/finance/chart/...`, sur la période choisie. La requête passe d'abord par `/api/yahoo` (fonction Cloudflare Pages, fiable, sous contrôle), puis par `corsproxy.io` et `allorigins` en fallback (utile si la page est ouverte en local sans être déployée).
+1. **Chargement automatique Yahoo Finance** — bouton qui récupère UPRO (ou `3USL.L`, version listée à Londres), SPY et ^VIX via l'API `query1.finance.yahoo.com/v8/finance/chart/...`, sur la période choisie. La requête passe d'abord par `/api/yahoo` (le Worker, fiable, sous contrôle), puis par `corsproxy.io` et `allorigins` en fallback (utile si la page est ouverte en local sans être déployée).
 2. **Upload manuel de CSV** — format export standard Yahoo Finance pour UPRO, SPY, VIX, et optionnellement un CSV de puts historiques réels (colonnes `date, strike, expiration, bid, ask, last`).
 3. **Simulation GBM (fallback)** — si aucune donnée réelle n'est chargée, génère un mouvement brownien géométrique avec régimes bull/bear pour SPY, puis dérive UPRO via `3 × rendement SPY − TER`.
 
@@ -141,4 +141,4 @@ L'outil documente lui-même ses limites :
 - **Pyodide** (`v0.25.0`) — exécute le moteur de backtest, écrit en Python (`pandas`, `numpy`, `scipy.stats.norm` si dispo sinon approximation Abramowitz & Stegun pour Black-Scholes), directement dans le navigateur.
 - **Chart.js 4 + chartjs-plugin-annotation** — graphiques (performance, drawdown, distribution, VIX, etc.).
 - **xlsx.js (SheetJS)** — export du classeur Excel complet.
-- Aucune dépendance serveur pour le calcul lui-même : seul l'**auto-fetch Yahoo Finance** a besoin d'un proxy CORS — assuré par `functions/api/yahoo.js` (Cloudflare Pages Function) une fois le site déployé, avec fallback sur `corsproxy.io`/`allorigins`, et sur `lancer_backtest.bat` (Node local) pour un usage 100 % hors-ligne.
+- Aucune dépendance serveur pour le calcul lui-même : seul l'**auto-fetch Yahoo Finance** a besoin d'un proxy CORS — assuré par `src/worker.js` (Cloudflare Worker) une fois le site déployé, avec fallback sur `corsproxy.io`/`allorigins`, et sur `lancer_backtest.bat` (Node local) pour un usage 100 % hors-ligne.

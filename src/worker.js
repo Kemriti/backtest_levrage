@@ -1,7 +1,7 @@
-// Cloudflare Pages Function — served at /api/yahoo
-// Proxies Yahoo Finance's chart API server-side (no CORS restriction between
-// two servers) and re-emits the response with permissive CORS headers so the
-// browser-side app can read it directly, with no localhost proxy required.
+// Cloudflare Worker entry point.
+// Serves the static app from /public (via the ASSETS binding) and proxies
+// Yahoo Finance at /api/yahoo so the browser-side fetch() has a same-origin,
+// CORS-safe endpoint — no localhost proxy or .bat needed once deployed.
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -9,7 +9,7 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': '*',
 };
 
-export async function onRequestGet({ request }) {
+async function handleYahoo(request) {
   const { searchParams } = new URL(request.url);
   const ticker  = searchParams.get('ticker');
   const period1 = searchParams.get('period1');
@@ -44,6 +44,15 @@ export async function onRequestGet({ request }) {
   }
 }
 
-export async function onRequestOptions() {
-  return new Response(null, { headers: CORS_HEADERS });
-}
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+
+    if (url.pathname === '/api/yahoo') {
+      if (request.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS });
+      return handleYahoo(request);
+    }
+
+    return env.ASSETS.fetch(request);
+  },
+};

@@ -1,0 +1,9 @@
+{
+  "name": "backtest-levrage",
+  "compatibility_date": "2026-06-21",
+  "main": "src/worker.js",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  }
+}
