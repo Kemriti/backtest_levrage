@@ -1,5 +1,5 @@
 {
-  "name": "backtest-levrage",
+  "name": "backtestlevrage",
   "compatibility_date": "2026-06-21",
   "main": "src/worker.js",
   "assets": {
